@@ -1,0 +1,102 @@
+# Importer le module Active Directory
+Import-Module ActiveDirectory
+
+# Définir les variables avec les informations fournies
+$oldDomain = "battplus.local"
+$newDomain = "tadasystem"
+
+# Récupérer tous les utilisateurs
+$users = Get-ADUser -Filter * -Properties UserPrincipalName -SearchBase "OU=compteUsers,OU=OU_Dev,DC=tada-systems,DC=local"
+
+# Parcourir chaque utilisateur
+foreach ($user in $users) {
+    $oldUPN = $user.UserPrincipalName
+
+    # Vérifier si l'adresse e-mail contient l'ancien domaine
+    if ($oldUPN -like "*@$oldDomain") {
+        $newUPN = $oldUPN.Replace("@$oldDomain", "@$newDomain")
+
+        # Modifier l'adresse e-mail de l'utilisateur
+        Set-ADUser -Identity $user.SamAccountName -UserPrincipalName $newUPN
+
+        Write-Host "Adresse e-mail mise à jour pour l'utilisateur $($user.Name)."
+    } else {
+        Write-Host "Aucune modification nécessaire pour l'utilisateur $($user.Name)."
+    }
+}
+$users = Get-ADUser -Filter *
+
+$users | ForEach-Object {
+    $user = $_
+    if ($user.UserPrincipalName -ne $null) {
+        $oldUPN = $user.UserPrincipalName
+        $newUPN = $oldUPN.Replace("@battplus.local", "@tada-systems.local")
+        $user | Set-ADUser -UserPrincipalName $newUPN
+        Write-Host "Adresse e-mail mise à jour pour l'utilisateur $($user.Name). Ancien UPN: $oldUPN, Nouvel UPN: $newUPN"
+    }
+}
+
+$StartNumber = 20034
+$EndNumber = 20200
+
+# Récupérer les enregistrements DNS correspondant aux ordinateurs BATT-PC-
+$Records = Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A | Where-Object { $_.HostName -like "BATT-PC-*" }
+
+$Index = 0
+for ($i = $StartNumber; $i -le $EndNumber; $i++) {
+    $NewHostname = "PC-TS-$i"
+
+    if ($Index -lt $Records.Count) {
+        $Record = $Records[$Index]
+
+        # Supprimer l'ancien enregistrement DNS
+        Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName
+
+        # Ajouter un nouvel enregistrement DNS avec le nouveau nom d'hôte
+        Add-DnsServerResourceRecordA -ZoneName "tada-systems.local" -Name $NewHostname -IPv4Address $Record.RecordData.IPv4Address
+
+        Write-Host "Enregistrement DNS modifié : $($Record.HostName) -> $NewHostname"
+
+        $Index++
+    }
+}
+
+Write-Host "La modification des enregistrements DNS est terminée."
+
+# Afficher les enregistrements DNS après la modification
+Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A
+$StartNumber = 20011
+$EndNumber = 20100
+$Counter = $StartNumber
+
+# Récupérer les enregistrements DNS correspondant aux machines BATT-IMP-XXX
+$Records = Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A | Where-Object { $_.HostName -like "BATT-IMP-*" }
+
+foreach ($Record in $Records) {
+    $NewHostname = "IMP-TS-$Counter"
+
+    # Supprimer l'ancien enregistrement DNS
+    Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName
+
+    # Ajouter un nouvel enregistrement DNS avec le nouveau nom d'hôte
+    Add-DnsServerResourceRecordA -ZoneName "tada-systems.local" -Name $NewHostname -IPv4Address $Record.RecordData.IPv4Address
+
+    Write-Host "Enregistrement DNS modifié : $($Record.HostName) -> $NewHostname"
+
+    $Counter++
+}
+
+$reportDirectory = "C:\"
+$fileName = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss") + ".txt"
+$filePath = Join-Path -Path $reportDirectory -ChildPath $fileName
+
+foreach ($i in 10..79) {
+    $ipAddress = "192.168.56.$i"
+
+    if (-not (Test-Connection -ComputerName $ipAddress -Quiet -Count 1)) {
+        Write-Host "Ressource non répondante : $ipAddress"
+        $ipAddress | Out-File -FilePath $filePath -Append
+    }
+}
+
+Write-Host "Le rapport des adresses IP non répondantes a été enregistré dans le fichier : $filePath"
