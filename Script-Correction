@@ -7,6 +7,8 @@ $newDomain = "tadasystem"
 
 # Récupérer tous les utilisateurs
 $users = Get-ADUser -Filter * -Properties UserPrincipalName -SearchBase "OU=compteUsers,OU=OU_Dev,DC=tada-systems,DC=local"
+# Afficher un autre message
+Write-Host "Récupérer tous les utilisateurs."
 
 # Parcourir chaque utilisateur
 foreach ($user in $users) {
@@ -24,7 +26,10 @@ foreach ($user in $users) {
         Write-Host "Aucune modification nécessaire pour l'utilisateur $($user.Name)."
     }
 }
+
 $users = Get-ADUser -Filter *
+# Afficher un autre message
+Write-Host "Avant la correction mail."
 
 $users | ForEach-Object {
     $user = $_
@@ -35,6 +40,8 @@ $users | ForEach-Object {
         Write-Host "Adresse e-mail mise à jour pour l'utilisateur $($user.Name). Ancien UPN: $oldUPN, Nouvel UPN: $newUPN"
     }
 }
+# Afficher un autre message
+Write-Host "Avec la correction mail."
 
 $StartNumber = 20034
 $EndNumber = 20200
@@ -65,6 +72,7 @@ Write-Host "La modification des enregistrements DNS est terminée."
 
 # Afficher les enregistrements DNS après la modification
 Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A
+
 $StartNumber = 20011
 $EndNumber = 20100
 $Counter = $StartNumber
@@ -76,7 +84,7 @@ foreach ($Record in $Records) {
     $NewHostname = "IMP-TS-$Counter"
 
     # Supprimer l'ancien enregistrement DNS
-    Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName
+    Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName -Force
 
     # Ajouter un nouvel enregistrement DNS avec le nouveau nom d'hôte
     Add-DnsServerResourceRecordA -ZoneName "tada-systems.local" -Name $NewHostname -IPv4Address $Record.RecordData.IPv4Address
@@ -85,6 +93,32 @@ foreach ($Record in $Records) {
 
     $Counter++
 }
+
+$StartNumber = 20020
+$EndNumber = 20070
+$Counter = $StartNumber
+
+# Récupérer les enregistrements DNS correspondant aux serveurs BATT-SRV-XXX
+$Records = Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A | Where-Object { $_.HostName -like "BATT-SRV-*" }
+
+foreach ($Record in $Records) {
+    $NewHostname = "SRV-TS-$Counter"
+
+    # Supprimer l'ancien enregistrement DNS
+    Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName -Force
+
+    # Ajouter un nouvel enregistrement DNS avec le nouveau nom d'hôte
+    Add-DnsServerResourceRecordA -ZoneName "tada-systems.local" -Name $NewHostname -IPv4Address $Record.RecordData.IPv4Address
+
+    Write-Host "Enregistrement DNS modifié : $($Record.HostName) -> $NewHostname"
+
+    $Counter++
+}
+
+Write-Host "La modification des enregistrements DNS est terminée."
+
+# Afficher les enregistrements DNS après la modification
+Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A
 
 $reportDirectory = "C:\"
 $fileName = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss") + ".txt"
