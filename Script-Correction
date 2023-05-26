@@ -148,3 +148,13 @@ foreach ($i in 10..79) {
         "$ipAddress ($resolvedName)" | Out-File -FilePath $filePath -Append
     }
 }
+$shareName = "Rapport-reseau"
+$sharePath = "C:\Rapport-reseau"
+
+# Créer le partage avancé avec contrôle total pour "Tout le monde"
+New-SmbShare -Name $shareName -Path $sharePath | Grant-SmbShareAccess -AccountName "Tout le monde" -AccessRight Full -Force
+
+# Modifier les permissions NTFS en désactivant l'héritage et en définissant les autorisations pour les administrateurs
+icacls.exe $sharePath /inheritance:d /grant Administrateurs:F /t
+
+Write-Host "Le partage avance et les permissions NTFS ont été configures avec succes."
