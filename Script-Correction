@@ -19,7 +19,7 @@ foreach ($user in $users) {
         $newUPN = $oldUPN.Replace("@$oldDomain", "@$newDomain")
 
         # Modifier l'adresse e-mail de l'utilisateur
-        Set-ADUser -Identity $user.SamAccountName -UserPrincipalName $newUPN
+        Set-ADUser -Identity $user.SamAccountName -UserPrincipalName $newUPN 
 
         Write-Host "Adresse e-mail mise à jour pour l'utilisateur $($user.Name)."
     } else {
@@ -57,7 +57,7 @@ for ($i = $StartNumber; $i -le $EndNumber; $i++) {
         $Record = $Records[$Index]
 
         # Supprimer l'ancien enregistrement DNS
-        Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName
+        Remove-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A -Name $Record.HostName -Force
 
         # Ajouter un nouvel enregistrement DNS avec le nouveau nom d'hôte
         Add-DnsServerResourceRecordA -ZoneName "tada-systems.local" -Name $NewHostname -IPv4Address $Record.RecordData.IPv4Address
