@@ -120,17 +120,31 @@ Write-Host "La modification des enregistrements DNS est terminée."
 # Afficher les enregistrements DNS après la modification
 Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A
 
-$reportDirectory = "C:\"
+$reportDirectory = "C:\Rapport-reseau"
 $fileName = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss") + ".txt"
 $filePath = Join-Path -Path $reportDirectory -ChildPath $fileName
 
-foreach ($i in 10..79) {
-    $ipAddress = "192.168.56.$i"
+# Récupérer les enregistrements DNS de la zone "tada-systems.local"
+$dnsRecords = Get-DnsServerResourceRecord -ZoneName "tada-systems.local" -RRType A
 
-    if (-not (Test-Connection -ComputerName $ipAddress -Quiet -Count 1)) {
-        Write-Host "Ressource non répondante : $ipAddress"
-        $ipAddress | Out-File -FilePath $filePath -Append
-    }
+# Créer le répertoire s'il n'existe pas
+if (-not (Test-Path $reportDirectory -PathType Container)) {
+    New-Item -ItemType Directory -Path $reportDirectory | Out-Null
 }
 
-Write-Host "Le rapport des adresses IP non répondantes a été enregistré dans le fichier : $filePath"
+foreach ($i in 10..79) {
+    $ipAddress = "192.168.56.$i"
+    $resolvedName = $null
+
+    # Vérifier si l'adresse IP correspond à un enregistrement DNS dans la zone "tada-systems.local"
+    $dnsRecord = $dnsRecords | Where-Object { $_.RecordData.IPv4Address.IPAddressToString -eq $ipAddress }
+
+    if ($dnsRecord) {
+        $resolvedName = $dnsRecord.HostName
+    }
+
+    if (-not (Test-Connection -ComputerName $ipAddress -Quiet -Count 1)) {
+        Write-Host "Ressource non répondante : $ipAddress ($resolvedName)"
+        "$ipAddress ($resolvedName)" | Out-File -FilePath $filePath -Append
+    }
+}
